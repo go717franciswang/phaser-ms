@@ -1,11 +1,20 @@
 <html>
+<head>
 <title>
 </title>
-<body oncontextmenu="return false">
+  <style>
+    #container {
+      width: 800px;
+      height: 600px;
+    }
+  </style>
+</head>
+<body>
+<div id="container" oncontextmenu="return false"></div>
 <script src="./js/phaser.min.js"></script>
 <script>
 
-var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+var game = new Phaser.Game(800, 600, Phaser.AUTO, 'container', { preload: preload, create: create, update: update });
 
 function preload() {
   game.load.spritesheet('tile', 'assets/tiles.png', 10, 10, 14);
@@ -16,29 +25,63 @@ var height = 10;
 var mineCount = 10;
 var mineMap;
 var tileScale = 3;
+var firstClick = true;
+var previousClickTime = 0;
+var previousClickTile = null;
+
+var FRAME = {
+  KNOWN: 0,
+  UNKNOWN: 1,
+  FLAG: 2,
+  MINE: 3
+};
 
 function create() {
   game.stage.backgroundColor = '#e8e8e8';
-  mineMap = genMineMap(width, height, mineCount);
+  mineMap = genEmptyMineMap(width, height);
   for (var i = 0; i < height; i++) {
-
     for (var j = 0; j < width; j++) {
       var onClickHandler = (function() {
         var tile = mineMap[i][j];
 
         return function(sprite, pointer) {
-          console.log(pointer);
+          curClickTime = this.input.mouse.event.timeStamp;
+
+          var doubleClicked = false;
+          if (curClickTime - previousClickTime < 500 && previousClickTile == sprite) {
+            doubleClicked = true;
+          }
+            
+          previousClickTime = curClickTime;
+          previousClickTile = sprite;
           frame = getFrame(tile);
-          console.log(this.formerMouse);
-            console.log(this.input.mouse.button);
-            console.log(Phaser.Mouse.RIGHT_BUTTON);
-          if (tile.mine) {
-            if(this.input.mouse.button === Phaser.Mouse.RIGHT_BUTTON) {
-              tile.frame = 2;
-              return true;
-            } else {
-              revealAll();
+
+          if (firstClick) {
+            firstClick = false;
+            mineMap = populateMineMap(mineMap, mineCount, tile.x, tile.y);
+            tile.sprite.frame = FRAME.KNOWN;
+            expandTile(tile.x, tile.y, mineMap);
+          } else if (tile.known) {
+            if (doubleClicked) {
+              var neighborFlagCount = getNeighborFlagCount(tile.x, tile.y);
+              if (neighborFlagCount == tile.neighborMineCount) {
+                try {
+                  expandTile(tile.x, tile.y, mineMap);
+                } catch (e) {
+                  revealAll();
+                }
+              }
             }
+          } else if (this.input.mouse.event.button === Phaser.Mouse.RIGHT_BUTTON) {
+            if (tile.sprite.frame == FRAME.FLAG) {
+              tile.sprite.frame = FRAME.UNKNOWN;
+            } else {
+              tile.sprite.frame = FRAME.FLAG;
+            }
+          } else if (tile.sprite.frame == FRAME.FLAG) {
+            // pass
+          } else if (tile.mine) {
+            revealAll();
           } else {
             if (tile.neighborMineCount == 0) {
               if (!tile.known) {
@@ -46,6 +89,7 @@ function create() {
                 expandTile(tile.x, tile.y, mineMap);
               }
             } else {
+              tile.known = true;
               tile.sprite.frame = frame;
             }
           }
@@ -53,15 +97,10 @@ function create() {
       })();
 
       var tileSprite = game.add.sprite(i*10*tileScale, j*10*tileScale, 'tile', 1);
-      tileSprite.frame = 1;
+      tileSprite.frame = FRAME.UNKNOWN;
       tileSprite.scale.setTo(tileScale, tileScale);
       tileSprite.inputEnabled = true;
-      //tileSprite.events.onInputDown.add(onClickHandler, this);
-      tileSprite.events.onInputDown.add(function(s,p) {
-        console.log(this);
-        console.log(s);
-        console.log(p);
-      }, this);
+      tileSprite.events.onInputDown.add(onClickHandler, this);
       mineMap[i][j].sprite = tileSprite;
     }
   }
@@ -81,9 +120,9 @@ function revealAll() {
 
 function getFrame(tile) {
   if (tile.mine) {
-    return 3;
+    return FRAME.MINE;
   } else if (tile.neighborMineCount == 0) {
-    return 0;
+    return FRAME.KNOWN;
   } else {
     return tile.neighborMineCount+3;
   }
@@ -92,7 +131,7 @@ function getFrame(tile) {
 function update() {
 }
 
-function genMineMap(width, height, mineCount) {
+function genEmptyMineMap(width, height) {
   var map = [];
   for (var i = 0; i < height; i++) {
     map.push([]);
@@ -100,34 +139,81 @@ function genMineMap(width, height, mineCount) {
       map[i].push({ 
         x: j,
         y: i,
-        mine: false,
+        mine: true,
         neighborMineCount: 0,
         known: false
       });
     }
   }
 
-  for (var i = 0; i < mineCount; i++) {
-    while (true) {
-      x = Math.floor(Math.random()*width);
-      y = Math.floor(Math.random()*height);
-      if (!map[y][x].mine) {
-        map[y][x].mine = true;
+  return map;
+}
 
+function populateMineMap(emptyMap, mineCount, initialClickX, initialClickY) {
+  var map = emptyMap;
+  var width = map[0].length;
+  var height = map.length;
+
+  var minesPositions = [];
+  for (var i = 0; i < height; i++) {
+    for (var j = 0; j < width; j++) {
+      minesPositions.push([j, i]);
+    }
+  }
+
+  // using strictly decreasing order so we can easily remove item from minesPositions
+  for (var dy = 1; dy >= -1; dy--) {
+    for (var dx = 1; dx >= -1; dx--) {
+      var x = initialClickX+dx;
+      var y = initialClickY+dy;
+
+      if (x >= 0 && x < width && y >= 0 && y < height) {
+        map[y][x].mine = false;
+        minesPositions.splice(y*width+x, 1);
+      }
+    }
+  }
+
+  // shuffle the positions
+  var minesToUncheckCount = minesPositions.length - mineCount;
+  var minesToUncheck = getNRandomItems(minesPositions, minesToUncheckCount);
+
+  for (var i = 0; i < minesToUncheck.length; i++) {
+    var x = minesToUncheck[i][0];
+    var y = minesToUncheck[i][1];
+    map[y][x].mine = false;
+  }
+
+  for (var i = 0; i < height; i++) {
+    for (var j = 0; j < width; j++) {
+      if (map[i][j].mine) {
         for (var dx = -1; dx <= 1; dx++) {
-          for (var dy = -1; dy <= 1; dy ++) {
-            if (!(dx == 0 && dy == 0) && y+dy >= 0 && y+dy < height && x+dx >= 0 && x+dx < width) {
-              map[y+dy][x+dx].neighborMineCount++;
+          for (var dy = -1; dy <= 1; dy++) {
+            var x = j+dx;
+            var y = i+dy;
+
+            if (!(dx == 0 && dy == 0) && x >= 0 && x < width && y >= 0 && y < height) {
+              map[y][x].neighborMineCount++;
             }
           }
         }
-
-        break;
       }
     }
   }
 
   return map;
+}
+
+function getNRandomItems(items, n) {
+  var bucket = [];
+
+  for (var i = 0; i < n; i++) {
+    var rndIdx = i + Math.floor(Math.random()*(items.length-i));
+    bucket.push(items[rndIdx]);
+    items[rndIdx] = items[i];
+  }
+
+  return bucket;
 }
 
 function expandTile(x, y, mineMap) {
@@ -138,9 +224,14 @@ function expandTile(x, y, mineMap) {
     for (var dy = -1; dy <= 1; dy++) {
       if (!(dx == 0 && dy == 0) && x+dx >= 0 && x+dx < width && y+dy >= 0 && y+dy < height) {
         var t = mineMap[y+dy][x+dx];
-        if (!t.known) {
+        if (!t.known && t.sprite.frame != FRAME.FLAG) {
+          if (t.mine) {
+            throw 'Boom!';
+          }
+
           var frame = getFrame(t);
           t.sprite.frame = frame;
+          t.known = true;
           if (t.neighborMineCount == 0) {
             expandTile(x+dx, y+dy, mineMap);
           }
@@ -148,6 +239,23 @@ function expandTile(x, y, mineMap) {
       }
     }
   }
+}
+
+function getNeighborFlagCount(x0, y0) {
+  var flagCount = 0;
+
+  for (var dx = -1; dx <= 1; dx++) {
+    for (var dy = -1; dy <= 1; dy++) {
+      var x = x0+dx;
+      var y = y0+dy;
+
+      if (x >= 0 && x < width && y >= 0 && y < height && mineMap[y][x].sprite.frame == FRAME.FLAG) {
+        flagCount++;
+      }
+    }
+  }
+
+  return flagCount;
 }
 </script>
 </body>
