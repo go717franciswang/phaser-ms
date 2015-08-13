@@ -4,7 +4,7 @@
 </title>
   <style>
     #container {
-      width: 800px;
+      width: 900px;
       height: 600px;
     }
   </style>
@@ -14,15 +14,22 @@
 <script src="./js/phaser.min.js"></script>
 <script>
 
-var game = new Phaser.Game(800, 600, Phaser.AUTO, 'container', { preload: preload, create: create, update: update });
+var game = new Phaser.Game(900, 600, Phaser.AUTO, 'container', { preload: preload, create: create, update: update });
 
 function preload() {
   game.load.spritesheet('tile', 'assets/tiles.png', 10, 10, 14);
 }
 
-var width = 10;
-var height = 10;
-var mineCount = 10;
+var MODES = {
+  BEGINNER: { width: 9, height: 9, mineCount: 10 },
+  INTERMEDIATE: { width: 16, height: 16, mineCount: 40 },
+  ADVANCED: { width: 16, height: 30, mineCount: 99 },
+};
+
+var mode = MODES.ADVANCED;
+var width = mode.width;
+var height = mode.height;
+var mineCount = mode.mineCount;
 var mineMap;
 var tileScale = 3;
 var firstClick = true;
