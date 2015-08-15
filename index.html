@@ -1,5 +1,9 @@
 <html>
 <head>
+<meta name="google-signin-clientid" content="774995976932-0t5hbu1etidoukc57mmpvdiuidq4emb2.apps.googleusercontent.com" />
+<meta name="google-signin-cookiepolicy" content="single_host_origin" />
+<meta name="google-signin-callback" content="signinCallback" />
+<meta name="google-signin-scope" content="https://www.googleapis.com/auth/games" />
 <title>
 </title>
   <style>
@@ -8,8 +12,11 @@
       height: 600px;
     }
   </style>
+  <script src="https://apis.google.com/js/platform.js" async defer></script>
+  <script src="https://apis.google.com/js/client.js"></script>
 </head>
 <body>
+<div id="signInButton" class="g-signin2" data-onsuccess="onSignIn"></div>
 <div id="container" oncontextmenu="return false"></div>
 <script src="./js/phaser.min.js"></script>
 <script>
@@ -32,6 +39,7 @@ WebFontConfig = {
 
 function preload() {
   game.load.spritesheet('tile', 'assets/tiles.png', 10, 10, 14);
+  game.load.spritesheet('face', 'assets/faces.png', 20, 20, 3);
 
   //  Load the Google WebFont Loader script
   game.load.script('webfont', '//ajax.googleapis.com/ajax/libs/webfont/1.4.7/webfont.js');
@@ -50,7 +58,7 @@ var height = mode.height;
 var mineCount = mode.mineCount;
 var mineMap;
 var tileScale = 3;
-var firstClick = true;
+var firstClick;
 var previousClickTime = 0;
 var previousClickTile = null;
 var tileGroup;
@@ -58,6 +66,7 @@ var knownCount;
 var flaggedCount;
 var gameStartTimestamp;
 var gameOver = false;
+var face;
 
 var textTimeElapsed;
 var textMinesLeft;
@@ -68,6 +77,18 @@ var FRAME = {
   FLAG: 2,
   MINE: 3
 };
+
+var userSignedIn = false;
+var googleServiceReady = false;
+
+function signinCallback() {
+  document.getElementById('signInButton').style.display = 'none';
+  userSignedIn = true;
+
+  gapi.client.load('games','v1',function(response) {
+    googleServiceReady = true;
+  });
+}
 
 function createText() {
   var style = { font: "28px VT323", fill: "#FF0000", tabs: [ 150, 150, 200 ] };
@@ -86,6 +107,17 @@ function create() {
   knownCount = 0;
   flaggedCount = 0;
   gameOver = false;
+  firstClick = true;
+  gameStartTimestamp = null;
+
+  face = game.add.sprite(game.width/2, 90, 'face', 0);
+  face.scale.setTo(2,2);
+  face.anchor.setTo(0.5, 0.5);
+  face.inputEnabled = true;
+  face.events.onInputDown.add(function() {
+    face.frame = 0;
+    this.create();
+  }, this);
 
   for (var i = 0; i < height; i++) {
     for (var j = 0; j < width; j++) {
@@ -93,6 +125,8 @@ function create() {
         var tile = mineMap[i][j];
 
         return function(sprite, pointer) {
+          if (gameOver) return;
+
           curClickTime = this.input.mouse.event.timeStamp;
 
           var doubleClicked = false;
@@ -168,6 +202,9 @@ function revealAll() {
       }
     }
   }
+
+  gameOver = true;
+  face.frame = 1;
 }
 
 function getFrame(tile) {
@@ -184,7 +221,12 @@ function update() {
   if (gameOver) return;
 
   if (textTimeElapsed) {
-    textTimeElapsed.text = Math.floor(((new Date()).getTime() - gameStartTimestamp) / 1000) || 0;
+    if (gameStartTimestamp) {
+      textTimeElapsed.text = Math.floor(((new Date()).getTime() - gameStartTimestamp) / 1000) || 0;
+    } else {
+      textTimeElapsed.text = 0;
+    }
+
     textMinesLeft.text = mineCount - flaggedCount;
   }
 }
@@ -206,8 +248,10 @@ function genEmptyMineMap(width, height) {
           this.known = true;
           knownCount++;
 
-          if (knownCount >= width*height-mineCount) {
+          if (knownCount >= width*height-mineCount && !gameOver) {
             gameOver = true;
+            face.frame = 2;
+            recordWin((new Date()).getTime() - gameStartTimestamp);
             console.log('won in ', ((new Date()).getTime() - gameStartTimestamp) / 1000, ' seconds');
           }
         },
@@ -226,6 +270,29 @@ function genEmptyMineMap(width, height) {
   }
 
   return map;
+}
+
+function recordWin(elapsedMicroSeconds) {
+  if (!googleServiceReady) return;
+  var request = gapi.client.games.scores.submit({ 
+    leaderboardId: "CgkI5MXwiscWEAIQAA",
+    score: elapsedMicroSeconds
+  });
+  request.execute(function(response) {
+    // Check to see if this is a new high score
+    console.log(response);
+  })
+
+  request2 = gapi.client.games.scores.list({
+    collection: 'PUBLIC',
+    leaderboardId: "CgkI5MXwiscWEAIQAA",
+    timeSpan: 'ALL_TIME',
+    maxResults: 5
+  });
+  request2.execute(function(response) {
+    // Do something interesting with the response
+    console.log(response);
+  });
 }
 
 function populateMineMap(emptyMap, mineCount, initialClickX, initialClickY) {
