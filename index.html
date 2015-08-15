@@ -14,10 +14,13 @@
   </style>
   <script src="https://apis.google.com/js/platform.js" async defer></script>
   <script src="https://apis.google.com/js/client.js"></script>
+  <script src="./js/jquery-2.1.4.min.js"></script>
+  <script src="./js/jquery-gapi-game-leaderboard/jquery-gapi-game-leaderboard.js"></script>
 </head>
 <body>
 <div id="signInButton" class="g-signin2" data-onsuccess="onSignIn"></div>
 <div id="container" oncontextmenu="return false"></div>
+<div id="leaderBoard"></div>
 <script src="./js/phaser.min.js"></script>
 <script>
 
@@ -404,6 +407,8 @@ function getNeighborFlagCount(x0, y0) {
 
   return flagCount;
 }
+
+$('#leaderBoard').gapiGameLeaderBoard(gapi, {});
 </script>
 </body>
 </html>
