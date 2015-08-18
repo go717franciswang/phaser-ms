@@ -84,13 +84,15 @@ var FRAME = {
 var userSignedIn = false;
 var googleServiceReady = false;
 
-function signinCallback() {
-  document.getElementById('signInButton').style.display = 'none';
-  userSignedIn = true;
+function signinCallback(authResult) {
+  if (authResult.status.signed_in) {
+    document.getElementById('signInButton').style.display = 'none';
+    userSignedIn = true;
 
-  gapi.client.load('games','v1',function(response) {
-    googleServiceReady = true;
-  });
+    gapi.client.load('games','v1',function(response) {
+      googleServiceReady = true;
+    });
+  }
 }
 
 function createText() {
@@ -285,17 +287,6 @@ function recordWin(elapsedMicroSeconds) {
     // Check to see if this is a new high score
     console.log(response);
   })
-
-  request2 = gapi.client.games.scores.list({
-    collection: 'PUBLIC',
-    leaderboardId: "CgkI5MXwiscWEAIQAA",
-    timeSpan: 'ALL_TIME',
-    maxResults: 5
-  });
-  request2.execute(function(response) {
-    // Do something interesting with the response
-    console.log(response);
-  });
 }
 
 function populateMineMap(emptyMap, mineCount, initialClickX, initialClickY) {
