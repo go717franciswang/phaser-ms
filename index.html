@@ -43,6 +43,7 @@ WebFontConfig = {
 function preload() {
   game.load.spritesheet('tile', 'assets/tiles.png', 10, 10, 14);
   game.load.spritesheet('face', 'assets/faces.png', 20, 20, 3);
+  game.load.image('wrench', 'assets/wrench.png', 20, 20);
 
   //  Load the Google WebFont Loader script
   game.load.script('webfont', '//ajax.googleapis.com/ajax/libs/webfont/1.4.7/webfont.js');
@@ -56,9 +57,9 @@ var MODES = {
 };
 
 var mode = MODES.BEGINNER;
-var width = mode.width;
-var height = mode.height;
-var mineCount = mode.mineCount;
+var width;
+var height;
+var mineCount;
 var mineMap;
 var tileScale = 3;
 var firstClick;
@@ -70,6 +71,7 @@ var flaggedCount;
 var gameStartTimestamp;
 var gameOver = false;
 var face;
+var wrench;
 
 var textTimeElapsed;
 var textMinesLeft;
@@ -83,6 +85,7 @@ var FRAME = {
 
 var userSignedIn = false;
 var googleServiceReady = false;
+var configDialog;
 
 function signinCallback(authResult) {
   if (authResult.status.signed_in) {
@@ -106,8 +109,16 @@ function createText() {
 }
 
 function create() {
+  width = mode.width;
+  height = mode.height;
+  mineCount = mode.mineCount;
   game.stage.backgroundColor = '#e8e8e8';
+  if (tileGroup) {
+    tileGroup.pendingDestroy = true;
+  }
+
   tileGroup = game.add.group();
+
   mineMap = genEmptyMineMap(width, height);
   knownCount = 0;
   flaggedCount = 0;
@@ -119,9 +130,57 @@ function create() {
   face.scale.setTo(2,2);
   face.anchor.setTo(0.5, 0.5);
   face.inputEnabled = true;
+  face.input.priorityID = 0;
   face.events.onInputDown.add(function() {
     face.frame = 0;
     this.create();
+  }, this);
+
+  wrench = game.add.sprite(game.width - 50, 50, 'wrench');
+  wrench.scale.setTo(2,2);
+  wrench.anchor.setTo(0.5, 0.5);
+  wrench.inputEnabled = true;
+  wrench.events.onInputDown.add(function() {
+    if (configDialog) {
+      configDialog.pendingDestroy = true;
+      configDialog = null;
+    } else {
+      var w = game.width - 120;
+      var h = game.height - 120;
+      configDialog = game.add.group();
+      var graphics = game.add.graphics((game.width-w)/2, (game.height-h)/2);
+      graphics.beginFill(0xFFFFFF);
+      configDialog.add(graphics);
+
+      // background
+      var bg = graphics.drawRoundedRect(0, 0, w, h, 50);
+      bg.inputEnabled = true;
+      bg.input.priorityID = 1;
+
+      // buttons
+      var bw = 200;
+      var bh = 60;
+      var createButton = function(x, y, name, newMode) {
+        var graphics = game.add.graphics(0, 0);
+        graphics.beginFill(game.stage.backgroundColor);
+        var button = graphics.drawRoundedRect(x, y, bw, bh, 10);
+
+        configDialog.add(button);
+        button.inputEnabled = true;
+        button.input.priorityID = 2;
+        button.events.onInputDown.add(function() {
+          mode = newMode;
+          console.log(mode);
+          configDialog.pendingDestroy = true;
+          configDialog = null;
+          this.create();
+        }, this);
+      };
+
+      createButton((game.width-bw)/2, (game.height-bh)/2 - 100, '', MODES.BEGINNER);
+      createButton((game.width-bw)/2, (game.height-bh)/2,       '', MODES.INTERMEDIATE);
+      createButton((game.width-bw)/2, (game.height-bh)/2 + 100, '', MODES.ADVANCED);
+    }
   }, this);
 
   for (var i = 0; i < height; i++) {
@@ -132,6 +191,7 @@ function create() {
         return function(sprite, pointer) {
           if (gameOver) return;
 
+          console.log(this);
           curClickTime = this.input.mouse.event.timeStamp;
 
           var doubleClicked = false;
@@ -187,6 +247,7 @@ function create() {
       tileSprite.frame = FRAME.UNKNOWN;
       tileSprite.scale.setTo(tileScale, tileScale);
       tileSprite.inputEnabled = true;
+      tileSprite.input.priorityID = 0;
       tileSprite.events.onInputDown.add(onClickHandler, this);
       mineMap[i][j].sprite = tileSprite;
     }
