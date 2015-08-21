@@ -1,10 +1,14 @@
 var playState = {
     create: function() {
+        var _this = this;
         if (googleFontReady) {
             this.createText();
         } else {
             setTimeout(this.createText, 1000);
         }
+
+        this.flaggedAtLeastOnce = false;
+        this.textStyle = { font: "28px VT323", fill: "#000000", tabs: [ 150, 150, 200 ] };
 
         width = mode.width;
         height = mode.height;
@@ -45,24 +49,35 @@ var playState = {
                 var w = game.width - 120;
                 var h = game.height - 120;
                 configDialog = game.add.group();
-                var graphics = game.add.graphics((game.width-w)/2, (game.height-h)/2);
-                graphics.beginFill(0xFFFFFF);
+                var graphics = game.add.graphics(0, 0);
                 configDialog.add(graphics);
 
                 // background
-                var bg = graphics.drawRoundedRect(0, 0, w, h, 50);
-                bg.inputEnabled = true;
-                bg.input.priorityID = 1;
+                // greyBg is used to cover up the board
+                graphics.beginFill(game.stage.backgroundColor);
+                var greyBg = graphics.drawRect(0, (wrench.y+wrench.height/2), game.width, game.height);
+                greyBg.inputEnabled = true;
+                greyBg.input.priorityID = 1;
+
+                graphics.beginFill(0xFFFFFF);
+                var whiteBg = graphics.drawRoundedRect((game.width-w)/2, (game.height-h)/2, w, h, 50);
+                whiteBg.inputEnabled = true;
+                whiteBg.input.priorityID = 1;
 
                 // buttons
                 var bw = 200;
                 var bh = 60;
-                var createButton = function(x, y, name, newMode) {
+                var createButton = function(x, y, newMode) {
                     var graphics = game.add.graphics(0, 0);
                     graphics.beginFill(game.stage.backgroundColor);
                     var button = graphics.drawRoundedRect(x, y, bw, bh, 10);
 
+                    var text = game.add.text(x+bw/2, y+bh/2, 0, _this.textStyle);
+                    text.anchor.setTo(0.5, 0.5);
+                    text.text = newMode.name;
+
                     configDialog.add(button);
+                    configDialog.add(text);
                     button.inputEnabled = true;
                     button.input.priorityID = 2;
                     button.events.onInputDown.add(function() {
@@ -73,9 +88,9 @@ var playState = {
                     }, this);
                 };
 
-                createButton((game.width-bw)/2, (game.height-bh)/2 - 100, '', MODES.BEGINNER);
-                createButton((game.width-bw)/2, (game.height-bh)/2,       '', MODES.INTERMEDIATE);
-                createButton((game.width-bw)/2, (game.height-bh)/2 + 100, '', MODES.ADVANCED);
+                createButton((game.width-bw)/2, (game.height-bh)/2 - 100, MODES.BEGINNER);
+                createButton((game.width-bw)/2, (game.height-bh)/2,       MODES.INTERMEDIATE);
+                createButton((game.width-bw)/2, (game.height-bh)/2 + 100, MODES.ADVANCED);
             }
         }, this);
 
@@ -91,6 +106,10 @@ var playState = {
 
                         var doubleClicked = false;
                         if (curClickTime - previousClickTime < 500 && previousClickTile == sprite) {
+                            doubleClicked = true;
+                        }
+
+                        if (this.leftAndRight(pointer)) {
                             doubleClicked = true;
                         }
 
@@ -143,7 +162,7 @@ var playState = {
                 tileSprite.scale.setTo(tileScale, tileScale);
                 tileSprite.inputEnabled = true;
                 tileSprite.input.priorityID = 0;
-                tileSprite.events.onInputDown.add(onClickHandler, this);
+                tileSprite.events.onInputUp.add(onClickHandler, this);
                 mineMap[i][j].sprite = tileSprite;
             }
         }
@@ -151,6 +170,16 @@ var playState = {
         var xOffset = (game.width - width*tileScale*10)/2;
         tileGroup.x = xOffset;
         tileGroup.y = 120;
+    },
+
+    leftAndRight: function(pointer) {
+        // left and right button were both down at some point 
+        // iff their down->up time period has an intersection
+        var a0 = pointer.leftButton.timeDown; 
+        var a1 = pointer.leftButton.timeUp;
+        var b0 = pointer.rightButton.timeDown; 
+        var b1 = pointer.rightButton.timeUp;
+        return !((a1 < b0) || (b1 < a0));
     },
 
     update: function() {
@@ -186,6 +215,8 @@ var playState = {
                 }
             }
         }
+
+        this.showToast('Busted!');
     },
 
     getFrame: function(tile) {
@@ -200,6 +231,8 @@ var playState = {
 
     genEmptyMineMap: function(width, height) {
         var map = [];
+        var _this = this;
+
         for (var i = 0; i < height; i++) {
             map.push([]);
             for (var j = 0; j < width; j++) {
@@ -218,7 +251,7 @@ var playState = {
                         if (knownCount >= width*height-mineCount && !gameOver) {
                             gameOver = true;
                             face.frame = 2;
-                            //this.recordWin((new Date()).getTime() - gameStartTimestamp);
+                            _this.recordWin((new Date()).getTime() - gameStartTimestamp);
                             console.log('won in ', ((new Date()).getTime() - gameStartTimestamp) / 1000, ' seconds');
                         }
                     },
@@ -226,6 +259,7 @@ var playState = {
                         if (this.sprite.frame == FRAME.FLAG) return;
                         this.sprite.frame = FRAME.FLAG;
                         flaggedCount++;
+                        _this.flaggedAtLeastOnce = true;
                     },
                     unflag: function() {
                         if (this.sprite.frame != FRAME.FLAG) return;
@@ -241,6 +275,25 @@ var playState = {
 
     recordWin: function(elapsedMicroSeconds) {
         if (!googleServiceReady) return;
+
+        this.recordScore(elapsedMicroSeconds);
+        var achievementIds = [mode.onCompleteAchievementId];
+
+        if (mode.name == 'Advanced') {
+            if (!this.flaggedAtLeastOnce) {
+                achievementIds.push(mode.daredevilAchievementId);
+            }
+
+            if (elapsedMicroSeconds / 1000 < 200) {
+                achievementIds.push(mode.godzillaAchievmentId);
+            }
+        }
+
+        this.recordAchievements(achievementIds);
+    },
+
+    recordScore: function(elapsedMicroSeconds) {
+        var _this = this;
         var request = gapi.client.games.scores.submit({ 
             leaderboardId: mode.leaderboardId,
             score: elapsedMicroSeconds
@@ -248,7 +301,65 @@ var playState = {
         request.execute(function(response) {
             // Check to see if this is a new high score
             console.log(response);
+            if (!response.beatenScoreTimeSpans) return;
+
+            if (response.beatenScoreTimeSpans.indexOf('ALL_TIME') != -1) {
+                _this.showToast('You got a new all-time high score!');
+            } else if (response.beatenScoreTimeSpans.indexOf('WEEKLY') != -1) {
+                _this.showToast('You got a new weekly high score!');
+            } else if (response.beatenScoreTimeSpans.indexOf('DAILY') != -1) {
+                _this.showToast('You got a new daily high score!');
+            }
         })
+    },
+
+    recordAchievements: function(achievementIds) {
+        var updates = [];
+        for (var i = 0; i < achievementIds.length; i++) {
+            updates.push({
+                kind: 'games#achievementUpdateRequest',
+                achievementId: achievementIds[i],
+                updateType: 'UNLOCK',
+            });
+        }
+        var request = gapi.client.games.achievements.updateMultiple({
+            kind: "games#achievementUpdateMultipleRequest",
+            updates: updates
+        });
+        request.execute(function(response) {
+            console.log(response);
+            var newlyUnlockedCount = 0;
+            for (var i = 0; i < response.updatedAchievements.length; i++) {
+                if (response.updatedAchievements[i].newlyUnlocked) {
+                    newlyUnlockedCount++;
+                }
+            }
+
+            if (newlyUnlockedCount > 0) {
+                this.showToast('You unlocked ' + newlyUnlockedCount + ' new achievements');
+            }
+        });
+    },
+
+    showToast: function(msg) {
+        var w = 15*msg.length+100;
+        var h = 120;
+        var dialog = game.add.group();
+
+        var graphics = game.add.graphics(0, 0);
+        graphics.beginFill(0xFFFFFF);
+        graphics.drawRoundedRect((game.width-w)/2, (game.height-h)/2, w, h, 50);
+        dialog.add(graphics);
+
+        var text = game.add.text(game.width/2, game.height/2, 0, this.textStyle);
+        text.anchor.setTo(0.5, 0.5);
+        text.text = msg;
+        dialog.add(text);
+
+        var tween = game.add.tween(dialog).to({ alpha: 0 }, 2000, Phaser.Easing.Linear.None, true, 1000);
+        tween.onComplete.add(function() {
+            dialog.destroy();
+        }, this);
     },
 
     populateMineMap: function(emptyMap, mineCount, initialClickX, initialClickY) {
@@ -359,5 +470,5 @@ var playState = {
         }
 
         return flagCount;
-    }
+    },
 };

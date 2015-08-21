@@ -23,22 +23,30 @@ game.state.start('load');
 var MODES = {
     TEST: { width: 9, height: 9, mineCount: 3 },
     BEGINNER: { 
+        name: 'Beginner',
         width: 9,
         height: 9,
         mineCount: 10,
-        leaderboardId: 'CgkI5MXwiscWEAIQAA'
+        leaderboardId: 'CgkI5MXwiscWEAIQAA',
+        onCompleteAchievementId: 'CgkI5MXwiscWEAIQBA',
     },
     INTERMEDIATE: { 
+        name: 'Intermediate',
         width: 16, 
         height: 16,
         mineCount: 40,
-        leaderboardId: 'CgkI5MXwiscWEAIQAQ'
+        leaderboardId: 'CgkI5MXwiscWEAIQAQ',
+        onCompleteAchievementId: 'CgkI5MXwiscWEAIQBQ',
     },
     ADVANCED: { 
+        name: 'Advanced',
         width: 30,
         height: 16,
         mineCount: 99,
-        leaderboardId: 'CgkI5MXwiscWEAIQAg'
+        leaderboardId: 'CgkI5MXwiscWEAIQAg',
+        onCompleteAchievementId: 'CgkI5MXwiscWEAIQBg',
+        daredevilAchievementId: 'CgkI5MXwiscWEAIQBw',
+        godzillaAchievmentId: 'CgkI5MXwiscWEAIQCA',
     },
 };
 
