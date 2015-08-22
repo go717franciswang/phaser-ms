@@ -1,3 +1,4 @@
+
 var game = new Phaser.Game(900, 600, Phaser.AUTO, 'container');
 var googleFontReady = false;
 
@@ -18,6 +19,7 @@ WebFontConfig = {
 
 game.state.add('load', loadState);
 game.state.add('play', playState);
+game.state.add('achievements', achievementState);
 game.state.start('load');
 
 var MODES = {
@@ -50,6 +52,20 @@ var MODES = {
     },
 };
 
+var GAPI_EVENTS = {
+    'Wins - Beginner': 'CgkI5MXwiscWEAIQCQ',
+    'Wins - Intermediate': 'CgkI5MXwiscWEAIQCw',
+    'Wins - Advanced': 'CgkI5MXwiscWEAIQDQ',
+    'Games - Beginner': 'CgkI5MXwiscWEAIQCg',
+    'Games - Intermediate': 'CgkI5MXwiscWEAIQDA',
+    'Games - Advanced': 'CgkI5MXwiscWEAIQDg',
+    'Actions - Flag': 'CgkI5MXwiscWEAIQDw',
+    'Actions - Unflag': 'CgkI5MXwiscWEAIQEA',
+    'Actions - Expand': 'CgkI5MXwiscWEAIQEQ',
+    'Actions - Reveal': 'CgkI5MXwiscWEAIQEg',
+    'Actions - Invalid': 'CgkI5MXwiscWEAIQEw',
+};
+
 var mode = MODES.BEGINNER;
 var width;
 var height;
@@ -62,7 +78,6 @@ var previousClickTile = null;
 var tileGroup;
 var knownCount;
 var flaggedCount;
-var gameStartTimestamp;
 var gameOver = false;
 var face;
 var wrench;
@@ -80,16 +95,5 @@ var FRAME = {
 var userSignedIn = false;
 var googleServiceReady = false;
 var configDialog;
-
-function signinCallback(authResult) {
-  if (authResult.status.signed_in) {
-    document.getElementById('signInButton').style.display = 'none';
-    userSignedIn = true;
-
-    gapi.client.load('games','v1',function(response) {
-      googleServiceReady = true;
-    });
-  }
-}
 
 $('#leaderBoard').gapiGameLeaderBoard(gapi, {});

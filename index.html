@@ -6,17 +6,31 @@
 <meta name="google-signin-scope" content="https://www.googleapis.com/auth/games" />
 <title>
 </title>
-  <style>
-    #container {
-      width: 900px;
-      height: 600px;
-    }
-  </style>
-  <script src="https://apis.google.com/js/platform.js" async defer></script>
-  <script src="https://apis.google.com/js/client.js"></script>
-  <script src="./js/jquery-2.1.4.min.js"></script>
-  <script src="./js/jquery-gapi-game-leaderboard/jquery-gapi-game-leaderboard.js"></script>
-  <script src="./js/phaser.min.js"></script>
+<style>
+#container {
+  margin-left: auto,
+  margin-right: auto,
+  width: 900px;
+  height: 600px;
+}
+</style>
+<script>
+function signinCallback(authResult) {
+  if (authResult.status.signed_in) {
+    document.getElementById('signInButton').style.display = 'none';
+    userSignedIn = true;
+
+    gapi.client.load('games','v1',function(response) {
+      googleServiceReady = true;
+    });
+  }
+}
+</script>
+<script src="https://apis.google.com/js/platform.js" async defer></script>
+<script src="https://apis.google.com/js/client.js"></script>
+<script src="./js/jquery-2.1.4.min.js"></script>
+<script src="./js/jquery-gapi-game-leaderboard/jquery-gapi-game-leaderboard.js"></script>
+<script src="./js/phaser.min.js"></script>
 </head>
 <body>
 <div id="signInButton" class="g-signin2" data-onsuccess="onSignIn"></div>
@@ -24,6 +38,7 @@
 <div id="leaderBoard"></div>
 <script src="./js/load.js"></script>
 <script src="./js/play.js"></script>
+<script src="./js/achievements.js"></script>
 <script src="./js/game.js"></script>
 </body>
 </html>

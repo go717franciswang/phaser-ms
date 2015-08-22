@@ -122,7 +122,7 @@
                     var rank = score.formattedScoreRank ? score.formattedScoreRank : 'Unranked';
                     var $row = $('<tr>'
                                 +'<td>'+rank+'</td>'
-                                +'<td>'+score.player.displayName+'</td>'
+                                +'<td>'+score.player.name.givenName+'</td>'
                                 +'<td>'+score.formattedScore+'</td>'
                                 +'<td>'+new Date(parseInt(score.writeTimestampMillis)).toLocaleString()+'</td>'
                                 +'</tr>');

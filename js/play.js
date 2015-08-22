@@ -8,7 +8,22 @@ var playState = {
         }
 
         this.flaggedAtLeastOnce = false;
-        this.textStyle = { font: "28px VT323", fill: "#000000", tabs: [ 150, 150, 200 ] };
+        this.textStyle = { font: "28px VT323", fill: "#000000" };
+        this.gapiEvents = {};
+        for (var k in GAPI_EVENTS) {
+            this.gapiEvents[k] = 0;
+        }
+        switch(mode.name) {
+            case 'Beginner':
+                _this.gapiEvents['Games - Beginner'] += 1;
+                break;
+            case 'Intermediate':
+                _this.gapiEvents['Games - Intermediate'] += 1;
+                break;
+            case 'Advanced':
+                _this.gapiEvents['Games - Advanced'] += 1;
+                break;
+        }
 
         width = mode.width;
         height = mode.height;
@@ -25,7 +40,7 @@ var playState = {
         flaggedCount = 0;
         gameOver = false;
         firstClick = true;
-        gameStartTimestamp = null;
+        this.gameStartTimestamp = null;
 
         face = game.add.sprite(game.width/2, 90, 'face', 0);
         face.scale.setTo(2,2);
@@ -94,6 +109,14 @@ var playState = {
             }
         }, this);
 
+        trophy = game.add.sprite(50, 50, 'trophy');
+        trophy.scale.setTo(2,2);
+        trophy.anchor.setTo(0.5, 0.5);
+        trophy.inputEnabled = true;
+        trophy.events.onInputDown.add(function() {
+            game.state.start('achievements');
+        }, this);
+
         for (var i = 0; i < height; i++) {
             for (var j = 0; j < width; j++) {
                 var onClickHandler = (function() {
@@ -122,8 +145,10 @@ var playState = {
                             mineMap = this.populateMineMap(mineMap, mineCount, tile.x, tile.y);
                             tile.sprite.frame = FRAME.KNOWN;
                             this.expandTile(tile.x, tile.y, mineMap);
+                            _this.gapiEvents['Actions - Reveal'] += 1
                         } else if (tile.known) {
                             if (doubleClicked) {
+                                _this.gapiEvents['Actions - Expand'] += 1
                                 var neighborFlagCount = this.getNeighborFlagCount(tile.x, tile.y);
                                 if (neighborFlagCount == tile.neighborMineCount) {
                                     try {
@@ -132,18 +157,24 @@ var playState = {
                                         this.revealAll();
                                     }
                                 }
+                            } else {
+                                _this.gapiEvents['Actions - Invalid'] += 1
                             }
                         } else if (this.input.mouse.event.button === Phaser.Mouse.RIGHT_BUTTON) {
                             if (tile.sprite.frame == FRAME.FLAG) {
+                                _this.gapiEvents['Actions - Unflag'] += 1
                                 tile.unflag();
                             } else {
+                                _this.gapiEvents['Actions - Flag'] += 1
                                 tile.flag();
                             }
                         } else if (tile.sprite.frame == FRAME.FLAG) {
-                            // pass
+                            _this.gapiEvents['Actions - Invalid'] += 1
                         } else if (tile.mine) {
+                            _this.gapiEvents['Actions - Reveal'] += 1
                             this.revealAll();
                         } else {
+                            _this.gapiEvents['Actions - Reveal'] += 1
                             if (tile.neighborMineCount == 0) {
                                 if (!tile.known) {
                                     tile.sprite.frame = frame;
@@ -186,8 +217,8 @@ var playState = {
         if (gameOver) return;
 
         if (textTimeElapsed) {
-            if (gameStartTimestamp) {
-                textTimeElapsed.text = Math.floor(((new Date()).getTime() - gameStartTimestamp) / 1000) || 0;
+            if (this.gameStartTimestamp) {
+                textTimeElapsed.text = Math.floor(((new Date()).getTime() - this.gameStartTimestamp) / 1000) || 0;
             } else {
                 textTimeElapsed.text = 0;
             }
@@ -197,9 +228,10 @@ var playState = {
     },
 
     createText: function() {
-        var style = { font: "28px VT323", fill: "#FF0000", tabs: [ 150, 150, 200 ] };
-        textTimeElapsed = game.add.text(300, 30, 0, style);
-        textMinesLeft = game.add.text(550, 30, 0, style);
+        var style = { font: "28px VT323", fill: "#FF0000" };
+        textTimeElapsed = game.add.text(315, 30, 0, style);
+        textMinesLeft = game.add.text(585, 30, 0, style);
+        textMinesLeft.anchor.setTo(1, 0);
     },
 
     revealAll: function() {
@@ -217,6 +249,7 @@ var playState = {
         }
 
         this.showToast('Busted!');
+        this.recordEvents();
     },
 
     getFrame: function(tile) {
@@ -251,8 +284,9 @@ var playState = {
                         if (knownCount >= width*height-mineCount && !gameOver) {
                             gameOver = true;
                             face.frame = 2;
-                            _this.recordWin((new Date()).getTime() - gameStartTimestamp);
-                            console.log('won in ', ((new Date()).getTime() - gameStartTimestamp) / 1000, ' seconds');
+
+                            _this.recordWin((new Date()).getTime() - _this.gameStartTimestamp);
+                            console.log('won in ', ((new Date()).getTime() - _this.gameStartTimestamp) / 1000, ' seconds');
                         }
                     },
                     flag: function() {
@@ -290,6 +324,19 @@ var playState = {
         }
 
         this.recordAchievements(achievementIds);
+
+        switch(mode.name) {
+            case 'Beginner':
+                _this.gapiEvents['Wins - Beginner'] += 1;
+                break;
+            case 'Intermediate':
+                _this.gapiEvents['Wins - Intermediate'] += 1;
+                break;
+            case 'Advanced':
+                _this.gapiEvents['Wins - Advanced'] += 1;
+                break;
+        }
+        this.recordEvents();
     },
 
     recordScore: function(elapsedMicroSeconds) {
@@ -314,6 +361,8 @@ var playState = {
     },
 
     recordAchievements: function(achievementIds) {
+        var _this = this;
+
         var updates = [];
         for (var i = 0; i < achievementIds.length; i++) {
             updates.push({
@@ -327,7 +376,6 @@ var playState = {
             updates: updates
         });
         request.execute(function(response) {
-            console.log(response);
             var newlyUnlockedCount = 0;
             for (var i = 0; i < response.updatedAchievements.length; i++) {
                 if (response.updatedAchievements[i].newlyUnlocked) {
@@ -336,8 +384,39 @@ var playState = {
             }
 
             if (newlyUnlockedCount > 0) {
-                this.showToast('You unlocked ' + newlyUnlockedCount + ' new achievements');
+                _this.showToast('You unlocked ' + newlyUnlockedCount + ' new achievements');
             }
+        });
+    },
+
+    recordEvents: function() {
+        var _this = this;
+        var updates = [];
+        for (var k in this.gapiEvents) {
+            updates.push({
+                kind: "games#eventUpdateRequest",
+                definitionId: GAPI_EVENTS[k],
+                updateCount: this.gapiEvents[k]
+            });
+        }
+
+        var request = gapi.client.games.events.record({
+            kind: "games#eventRecordRequest",
+            currentTimeMillis: (new Date()).getTime(),
+            timePeriods: [{
+                kind: "games#eventPeriodUpdate",
+                timePeriod: {
+                    kind: "games#eventPeriodRange",
+                    periodStartMillis: _this.gameStartTimestamp,
+                    periodEndMillis: (new Date()).getTime()
+                },
+                updates: updates
+            }]
+        });
+
+        request.execute(function(response) {
+            // at least periods shorter than 25 seconds are not allowed
+            console.log(response);
         });
     },
 
@@ -366,7 +445,7 @@ var playState = {
         var map = emptyMap;
         var width = map[0].length;
         var height = map.length;
-        gameStartTimestamp = (new Date()).getTime();
+        this.gameStartTimestamp = (new Date()).getTime();
 
         var minesPositions = [];
         for (var i = 0; i < height; i++) {
