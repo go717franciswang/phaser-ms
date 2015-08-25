@@ -65,6 +65,7 @@ var GAPI_EVENTS = {
     'Actions - Reveal': 'CgkI5MXwiscWEAIQEg',
     'Actions - Invalid': 'CgkI5MXwiscWEAIQEw',
 };
+var gapiEventManager = new GapiEventManager(gapi, { intervalMS: 60*1000, eventNameToId: GAPI_EVENTS });
 
 var mode = MODES.BEGINNER;
 var width;

@@ -9,21 +9,6 @@ var playState = {
 
         this.flaggedAtLeastOnce = false;
         this.textStyle = { font: "28px VT323", fill: "#000000" };
-        this.gapiEvents = {};
-        for (var k in GAPI_EVENTS) {
-            this.gapiEvents[k] = 0;
-        }
-        switch(mode.name) {
-            case 'Beginner':
-                _this.gapiEvents['Games - Beginner'] += 1;
-                break;
-            case 'Intermediate':
-                _this.gapiEvents['Games - Intermediate'] += 1;
-                break;
-            case 'Advanced':
-                _this.gapiEvents['Games - Advanced'] += 1;
-                break;
-        }
 
         width = mode.width;
         height = mode.height;
@@ -145,10 +130,10 @@ var playState = {
                             mineMap = this.populateMineMap(mineMap, mineCount, tile.x, tile.y);
                             tile.sprite.frame = FRAME.KNOWN;
                             this.expandTile(tile.x, tile.y, mineMap);
-                            _this.gapiEvents['Actions - Reveal'] += 1
+                            gapiEventManager.increment('Actions - Reveal');
                         } else if (tile.known) {
                             if (doubleClicked) {
-                                _this.gapiEvents['Actions - Expand'] += 1
+                                gapiEventManager.increment('Actions - Expand');
                                 var neighborFlagCount = this.getNeighborFlagCount(tile.x, tile.y);
                                 if (neighborFlagCount == tile.neighborMineCount) {
                                     try {
@@ -158,23 +143,23 @@ var playState = {
                                     }
                                 }
                             } else {
-                                _this.gapiEvents['Actions - Invalid'] += 1
+                                gapiEventManager.increment('Actions - Invalid');
                             }
                         } else if (this.input.mouse.event.button === Phaser.Mouse.RIGHT_BUTTON) {
                             if (tile.sprite.frame == FRAME.FLAG) {
-                                _this.gapiEvents['Actions - Unflag'] += 1
+                                gapiEventManager.increment('Actions - Unflag');
                                 tile.unflag();
                             } else {
-                                _this.gapiEvents['Actions - Flag'] += 1
+                                gapiEventManager.increment('Actions - Flag');
                                 tile.flag();
                             }
                         } else if (tile.sprite.frame == FRAME.FLAG) {
-                            _this.gapiEvents['Actions - Invalid'] += 1
+                            gapiEventManager.increment('Actions - Invalid');
                         } else if (tile.mine) {
-                            _this.gapiEvents['Actions - Reveal'] += 1
+                            gapiEventManager.increment('Actions - Reveal');
                             this.revealAll();
                         } else {
-                            _this.gapiEvents['Actions - Reveal'] += 1
+                            gapiEventManager.increment('Actions - Reveal');
                             if (tile.neighborMineCount == 0) {
                                 if (!tile.known) {
                                     tile.sprite.frame = frame;
@@ -249,7 +234,21 @@ var playState = {
         }
 
         this.showToast('Busted!');
-        this.recordEvents();
+        this.incrementGameEvent();
+    },
+
+    incrementGameEvent: function() {
+        switch(mode.name) {
+            case 'Beginner':
+                gapiEventManager.increment('Games - Beginner');
+                break;
+            case 'Intermediate':
+                gapiEventManager.increment('Games - Intermediate');
+                break;
+            case 'Advanced':
+                gapiEventManager.increment('Games - Advanced');
+                break;
+        }
     },
 
     getFrame: function(tile) {
@@ -325,18 +324,18 @@ var playState = {
 
         this.recordAchievements(achievementIds);
 
+        this.incrementGameEvent();
         switch(mode.name) {
             case 'Beginner':
-                _this.gapiEvents['Wins - Beginner'] += 1;
+                gapiEventManager.increment('Wins - Beginner');
                 break;
             case 'Intermediate':
-                _this.gapiEvents['Wins - Intermediate'] += 1;
+                gapiEventManager.increment('Wins - Intermediate');
                 break;
             case 'Advanced':
-                _this.gapiEvents['Wins - Advanced'] += 1;
+                gapiEventManager.increment('Wins - Advanced');
                 break;
         }
-        this.recordEvents();
     },
 
     recordScore: function(elapsedMicroSeconds) {
@@ -386,37 +385,6 @@ var playState = {
             if (newlyUnlockedCount > 0) {
                 _this.showToast('You unlocked ' + newlyUnlockedCount + ' new achievements');
             }
-        });
-    },
-
-    recordEvents: function() {
-        var _this = this;
-        var updates = [];
-        for (var k in this.gapiEvents) {
-            updates.push({
-                kind: "games#eventUpdateRequest",
-                definitionId: GAPI_EVENTS[k],
-                updateCount: this.gapiEvents[k]
-            });
-        }
-
-        var request = gapi.client.games.events.record({
-            kind: "games#eventRecordRequest",
-            currentTimeMillis: (new Date()).getTime(),
-            timePeriods: [{
-                kind: "games#eventPeriodUpdate",
-                timePeriod: {
-                    kind: "games#eventPeriodRange",
-                    periodStartMillis: _this.gameStartTimestamp,
-                    periodEndMillis: (new Date()).getTime()
-                },
-                updates: updates
-            }]
-        });
-
-        request.execute(function(response) {
-            // at least periods shorter than 25 seconds are not allowed
-            console.log(response);
         });
     },
 
