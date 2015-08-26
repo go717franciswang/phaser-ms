@@ -157,6 +157,7 @@ var playState = {
                             gapiEventManager.increment('Actions - Invalid');
                         } else if (tile.mine) {
                             gapiEventManager.increment('Actions - Reveal');
+                            tile.sprite.frame = FRAME.BOOM;
                             this.revealAll();
                         } else {
                             gapiEventManager.increment('Actions - Reveal');
@@ -226,7 +227,11 @@ var playState = {
         for (var i = 0; i < height; i++) {
             for (var j = 0; j < width; j++) {
                 var tile = mineMap[i][j];
-                if (!tile.known) {
+                if (tile.sprite.frame == FRAME.FLAG) {
+                    if (!tile.mine) {
+                        tile.sprite.frame = FRAME.WRONG_FLAG;
+                    }
+                } else if (!tile.known && tile.sprite.frame != FRAME.BOOM) {
                     tile.sprite.frame = this.getFrame(tile);
                     tile.makeKnown();
                 }
@@ -346,7 +351,6 @@ var playState = {
         });
         request.execute(function(response) {
             // Check to see if this is a new high score
-            console.log(response);
             if (!response.beatenScoreTimeSpans) return;
 
             if (response.beatenScoreTimeSpans.indexOf('ALL_TIME') != -1) {
@@ -487,6 +491,7 @@ var playState = {
                     var t = mineMap[y+dy][x+dx];
                     if (!t.known && t.sprite.frame != FRAME.FLAG) {
                         if (t.mine) {
+                            t.sprite.frame = FRAME.BOOM;
                             throw 'Boom!';
                         }
 

@@ -90,7 +90,9 @@ var FRAME = {
   KNOWN: 0,
   UNKNOWN: 1,
   FLAG: 2,
-  MINE: 3
+  MINE: 3,
+  WRONG_FLAG: 13,
+  BOOM: 14
 };
 
 var userSignedIn = false;

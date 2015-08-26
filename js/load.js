@@ -3,7 +3,7 @@ var loadState = {
         //game.scale.scaleMode = Phaser.ScaleManager.RESIZE;
         game.scale.pageAlignHorizontally = true;
 
-        game.load.spritesheet('tile', 'assets/tiles.png', 10, 10, 14);
+        game.load.spritesheet('tile', 'assets/tiles.png', 10, 10, 15);
         game.load.spritesheet('face', 'assets/faces.png', 20, 20, 3);
         game.load.image('wrench', 'assets/wrench.png', 20, 20);
         game.load.image('trophy', 'assets/trophy.png', 20, 20);
