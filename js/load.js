@@ -1,6 +1,5 @@
 var loadState = {
     preload: function() {
-        //game.scale.scaleMode = Phaser.ScaleManager.RESIZE;
         game.scale.pageAlignHorizontally = true;
 
         game.load.spritesheet('tile', 'assets/tiles.png', 10, 10, 15);
@@ -11,10 +10,12 @@ var loadState = {
 
         //  Load the Google WebFont Loader script
         game.load.script('webfont', '//ajax.googleapis.com/ajax/libs/webfont/1.4.7/webfont.js');
+
+        // Remove antilias. This line does not work when it's in the create function
+        game.stage.smoothed = false;
     },
 
     create: function() {
-        game.stage.smoothed = false;
         game.state.start('play');
     }
 };
